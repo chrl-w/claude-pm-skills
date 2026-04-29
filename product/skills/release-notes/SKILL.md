@@ -9,7 +9,7 @@ description: >
   "release summary".
 ---
 
-# Release Summary
+# Release Notes
 
 Generate internal release notes covering everything merged since the last staging release. Output follows the standard SZ release notes format. PMs review before sharing — do not attempt to determine what's behind a feature flag or ready to ship.
 
