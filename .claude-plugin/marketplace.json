@@ -1,0 +1,22 @@
+{
+  "name": "claude-pm-skills",
+  "owner": {
+    "name": "Charlie Watkinson"
+  },
+  "metadata": {
+    "description": "Product management plugins for Claude Code and Cowork - skills, commands, and workflows used at Spotted Zebra.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "product",
+      "source": "./product",
+      "description": "Core PM workflows - release summaries, feature documentation, commercial team updates, analytics event naming, and customer-facing Knowledge Centre articles.",
+      "version": "0.2.0",
+      "author": {
+        "name": "Charlie Watkinson"
+      },
+      "category": "product-management"
+    }
+  ]
+}
