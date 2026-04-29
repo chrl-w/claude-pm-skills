@@ -1,218 +1,116 @@
 ---
-name: release-summary
+name: release-notes
 description: >
-  Create release summaries for internal teams (CS, Sales, Support) after each release. Pulls merged
-  PRs from GitHub, extracts Jira ticket keys, cross-references the Upcoming Feature Releases database
-  for consistency, and publishes to Notion. Use this skill whenever the user wants to summarise what
-  shipped, write up a release, create a changelog, or draft a post-release update. Also trigger when
-  the user says "what went out", "write up this release", "release summary", "ship notes", or
-  "what did we ship".
+  Generate internal release notes for what's going out in the next release, based on merged
+  commits since the last staging release in the sz-monorepo. Produces a scannable "What's changed"
+  list in the standard SZ format for CS and commercial teams to review. Use this skill whenever
+  the user wants to write up a release, create a changelog, or draft release notes. Also trigger
+  when the user says "what's going out", "write release notes", "what did we ship", or
+  "release summary".
 ---
 
 # Release Summary
 
-Create clear, scannable release summaries for internal teams after each product release. Uses GitHub as the source of truth for what shipped, links back to Jira for context, and cross-references the Upcoming Feature Releases database for consistency.
+Generate internal release notes covering everything merged since the last staging release. Output follows the standard SZ release notes format. PMs review before sharing — do not attempt to determine what's behind a feature flag or ready to ship.
 
-## Workflow
+## Source of truth
 
-1. **Identify the release** — Get the release tag from the user
-2. **Gather merged PRs from GitHub** — Pull PRs between tags across repos
-3. **Extract and fetch Jira tickets** — Parse PR titles for ticket keys, fetch details
-4. **Cross-reference upcoming-releases** — Check what was already communicated
-5. **Draft release summary** — Write in standard format, share for review
-6. **Iterate** — Refine based on feedback
-7. **Update upcoming-releases statuses** — Move shipped entries to "Shipped 🚀"
-8. **Publish to Notion** — Save the summary
-9. **Offer Slack update** — Optional per-feature announcements
+The monorepo (`sz-monorepo`) uses git tags as the release baseline. `root@staging` marks the last deployed staging release. Everything between `root@staging` and `HEAD` is going into the next release.
 
-## Configuration
-
-### GitHub Organisation
-`Spotted-Zebra-UK`
-
-### Core Product Repos
-These repos are checked by default for every release:
-- `sz-monolith`
-- `sz-company-client`
-- `sz-admin-client`
-- `sz-candidate-client`
-- `sz-ui-components`
-- `sz-client-shared-sub`
-
-### Jira Ticket Key Pattern
-Project prefixes: `IC`, `CR`, `YL`, `BL`, `BK`, `DEVOPS`, `EN`
-Regex: `(IC|CR|YL|BL|BK|DEVOPS|EN)-\d+`
-
-## Step 1: Identify the Release
-
-Ask the user:
-> Which release should I summarise? Give me the tag (e.g. `v2.14`) or say "latest" and I'll find the most recent one.
-
-If the user says "latest", use the `gh` CLI to find the most recent release tag:
 ```bash
-gh release list --repo Spotted-Zebra-UK/sz-monolith --limit 2 --json tagName,publishedAt
+git fetch --tags
+git log root@staging..HEAD --pretty=format:"%s"
 ```
 
-This returns the current and previous tags, which are needed for the comparison.
+## Commit format
 
-## Step 2: Gather Merged PRs from GitHub
+Each line represents a merged PR:
+`<type>: [TICKET-ID] - description (#PR-number)`
 
-For each core product repo, get the merged PRs between the previous release tag and the current one.
+Examples:
+- `feat: [YL-2710] - candidates invites on first stage (#323)`
+- `fix: [NO_JIRA] - bulk shortlist fix (#372)`
+- `limit email invite to max 5 (#342)`
 
-Use the `gh` CLI via Desktop Commander to compare tags:
-```bash
-gh api repos/Spotted-Zebra-UK/{repo}/compare/{previous_tag}...{current_tag} \
-  --jq '[.commits[].sha]'
-```
+## Ticket ID pattern
 
-Then get the PRs associated with those commits:
-```bash
-gh pr list --repo Spotted-Zebra-UK/{repo} --state merged \
-  --json title,number,mergedAt,headRefName,body \
-  --limit 200 \
-  --search "merged:{previous_release_date}..{current_release_date}"
-```
+`(IC|CR|YL|BL|BK|DEVOPS|EN)-\d+`
 
-If a repo doesn't use the same tag scheme, fall back to date-based filtering using the release dates from the monolith tags.
+Commits with `[NO_JIRA]` or no ticket at all are still included — use the PR title as the description.
 
-Compile a combined list of all merged PRs across repos. Note which repo each PR came from.
+## Jira configuration
 
-## Step 3: Extract and Fetch Jira Tickets
+**Cloud ID:** `0a01a553-0bb8-4ac1-943d-eb9a2535647e`
 
-### Extract ticket keys
-Parse each PR title for Jira ticket keys using the pattern `(IC|CR|YL|BL|BK|DEVOPS|EN)-\d+`.
+Fetch: title, description, epic. Fall back to PR title if a ticket can't be found.
 
-Deduplicate: the same ticket may have PRs across multiple repos. Merge these into a single entry.
+## Output format
 
-### Flag unlinked PRs
-PRs without a Jira reference in the title get collected separately. Present these to the user:
-> These PRs don't reference a Jira ticket. Should any be included in the release summary?
-> - PR #142 (sz-company-client): "Update dependency versions"
-> - PR #87 (sz-monolith): "Fix typo in error message"
+Single `What's changed` section. No user-facing/SZ-facing split. No squad grouping.
 
-Let the user decide which (if any) to include.
-
-### Fetch Jira details
-Use Jira tools (cloud ID: `0a01a553-0bb8-4ac1-943d-eb9a2535647e`) to retrieve details for each extracted ticket key.
-
-**Include if:**
-- User-facing change (new feature, enhancement, bug fix visible to customers)
-- Behaviour change CS/Sales need to know about
-- Deprecation or removal
-- Admin-only change that affects internal workflows
-
-**Exclude:**
-- Backend refactors with no user impact
-- Feature flag removals (unless behaviour changes)
-- Minor UI polish (unless specifically requested)
-- Internal tooling changes
-
-## Step 4: Cross-Reference Upcoming Feature Releases
-
-Check the Upcoming Feature Releases Notion database for entries that match features in this release.
-
-**Database ID:** `e8cfad90-b747-4d23-b2b9-feafe5d57007`
-**Data source ID:** `collection://2ee8a21e-848a-4fb7-ba5d-60e48071534a`
-
-For each match:
-- Use the same customer-facing name already in the database.
-- Check "Key things to know" for consistency. The release summary must not contradict limitations or guardrails already communicated.
-- Flag entries whose status should move to "Shipped 🚀".
-
-If no matching entries exist, carry on. Not everything goes through pre-release comms.
-
-## Step 5: Draft Release Summary
-
-### Format
-
-```markdown
-## Release Summary — [Date]
-
-**User facing changes**
-- [Emoji] [App - Product Area] Description.
-
-**SZ facing changes (internal users only initially 🚩)**
-- [Emoji] [App - Product Area] Description.
-
-**⚠️ Key things to know for CS:**
-- Bullet points for operational context.
-```
-
-### Emoji Legend
+### Emoji
 
 | Emoji | Meaning |
 |-------|---------|
-| 🆕 | New feature |
-| 🍰 | Enhancement (improvement to existing functionality) |
-| 🐛 | Bug fix |
-| ☠️ | Deprecation or removal |
+| `:new:` | New feature or capability |
+| `:cake:` | Improvement or bug fix |
 
-### App - Product Area Tag
+### Area tags
 
-Format: `[App - Product Area]`
+Each bullet gets a short `[Area]` label. Area label only — no app prefix.
 
-**App options:** Company, Admin, Company & Admin
+| Label | Covers |
+|-------|--------|
+| `[Roles]` | Role creation, setup, pipeline |
+| `[AI Shortlist]` | AI shortlisting, CV upload, shortlist stage |
+| `[AI Interviews]` | AI interview product, candidate config, integrity |
+| `[Assessments]` | Assessment stages, scoring, reports |
+| `[Interviews]` | Interview guides, evaluations |
+| `[Meetings]` | Meetings page, participants, summaries |
 
-**Product Area examples:** Role Kick Off, Stages, Interview Guide, Projects, Company Settings, Candidates, Reports
+If unsure which label to use, ask the user — don't guess.
 
-### Writing Style
+### Grouping and order
 
-- One sentence per bullet, ending with full stop.
-- Active voice, present tense ("Users can now..." not "Users will be able to...").
-- Benefit-led where possible ("Faster project setup" not "Changed default value").
-- No jargon — write for CS/Sales, not engineers.
-- If a feature was already announced via upcoming-releases, match the language used there.
+Group bullets by area. Order areas by user journey:
+1. Roles
+2. AI Shortlist
+3. AI Interviews
+4. Assessments
+5. Interviews
+6. Meetings
 
-## Step 6: Share and Iterate
+### What to include
 
-Present the draft. If features were cross-referenced from Upcoming Feature Releases, note which ones and confirm naming is consistent.
+- All merged commits, including `[NO_JIRA]` and unlinked PRs
+- Bug fixes that affect end users (client users or SZ admin users)
+- Everything — let PMs decide what to share; do not filter by feature flag status
 
-## Step 7: Update Upcoming Feature Releases Statuses
+### What to exclude
 
-After the release summary is approved, present entries to update:
+- Pure infrastructure changes with no user impact (CI fixes, dependency bumps, code cleanup)
+- Duplicate entries for the same change
 
-> These features appear in the Upcoming Feature Releases database and have now shipped:
->
-> | Feature name | Current status | Proposed status |
-> |---|---|---|
-> | [name] | Shipping Soon 👀 | Shipped 🚀 |
-> | [name] | In Development | Shipped 🚀 |
->
-> Should I update these?
+### CS inclusion rule
 
-Only update after explicit confirmation.
+If in doubt about whether to include something, ask: would CS need to know this to support clients, handle admin, or talk to customers? If yes, include it.
 
-## Step 8: Publish to Notion
+## Example output
 
-On first use, ask where release summaries should live:
-> Where should I save release summaries in Notion? You can give me:
-> - A page URL (I'll create child pages under it)
-> - A database URL (I'll add entries to it)
-> - Or tell me to create a new page somewhere
-
-Create the page with:
-- **Title**: "Release Summary — [Date]"
-- **Content**: The full release summary
-
-## Step 9: Offer Slack Update
-
-Ask if the user wants a Slack announcement for any specific features or the full summary. Always show drafts and get confirmation before sending.
-
-### Slack Update Format (per feature)
-
-```markdown
-🚀 **New: [Feature name]**
-
-[1-2 sentence summary of what's new]
-
-⚙️ **How it works:**
-- Bullet points explaining the change
-
-✨ **Why this matters:**
-- Benefit-focused bullet points
-
-⚠️ **Key things to know:**
-- Operational notes for CS/Support (if applicable)
 ```
+**What's changed**
 
-Keep Slack updates under 150 words per feature. Show drafts before sending.
+:new: [AI Shortlist] Recruiters can now bulk shortlist and unshortlist candidates in a single action, removing the need to action candidates one at a time.
+:new: [AI Shortlist] The shortlist view now supports column headers and sorting, making it easier to scan and compare candidates across a role.
+:cake: [AI Shortlist] Filter colours updated for improved clarity.
+:cake: [AI Shortlist] Candidate invites via email are now capped at 5 per send.
+:cake: [AI Shortlist] Fixed an issue where uploaded CVs could get stuck in a processing state indefinitely.
+
+:new: [Meetings] Participants can now be added to existing meetings and evaluators to existing interviews after initial setup.
+:new: [Meetings] The meetings page now supports filtering by user or attendee.
+:cake: [Meetings] Fixed an issue where some participants were seeing other participants' meeting summaries.
+
+:cake: [AI Interviews] Candidates now see a dedicated configuration screen before their AI interview begins, on both desktop and mobile.
+:new: [AI Interviews] Integrity monitoring is now live — signals are collected during AI interviews and flagged in the admin interface.
+:new: [AI Interviews] The AI agent used per interview stage can now be configured from the admin UI, without requiring a code change.
+```
