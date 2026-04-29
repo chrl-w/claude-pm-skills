@@ -1,6 +1,7 @@
 ---
 name: heap-event-naming
 description: Name and parameterise Heap analytics events following Spotted Zebra's event taxonomy. Use this skill whenever someone asks to create, name, review, or fix a Heap event, track an action in analytics, add tracking to a feature, implement event tracking, migrate old events, or asks "what should I call this event?". Also trigger when reviewing PRs that include Heap tracking, when a squad asks about analytics naming conventions, or when anyone mentions Heap events, event taxonomy, or analytics tracking in the context of product work.
+argument-hint: "<describe the user action to track>"
 ---
 
 # Heap Event Naming
@@ -31,6 +32,17 @@ Each part can be multi-word with hyphens (e.g. `add-candidates`, `priority-skill
 **When to omit the object:** Omit it when the domain entity is the direct target of the action. For example, `candidate-added` — the candidate is what's being added. Adding an object here would either be redundant (`candidate-candidate-added`) or ambiguous (`candidate-stage-added` reads as "a stage was added to the candidate"). Put the context in parameters instead.
 
 **Parsing logic:** Domain is matched from the start against the controlled list. Action is matched from the end against the controlled list. Everything in between is the object (which may be empty). This makes parsing deterministic even with multi-word parts.
+
+## User intake
+
+If the user invoked this skill with an argument, use it directly. Otherwise ask: "What user action do you want to track?"
+
+Accept any level of specificity:
+- A specific interaction ("user clicks the filter for role match on the pipeline")
+- A feature area ("we need tracking for the new bulk invite flow")
+- A vague description ("track something when they use the calendar sync")
+
+If the description is ambiguous, ask **one** focused clarifying question. Don't over-ask — make a recommendation and let the user correct it.
 
 ## How to name an event
 
