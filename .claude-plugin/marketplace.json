@@ -12,7 +12,7 @@
       "name": "product",
       "source": "./product",
       "description": "Core PM workflows - release summaries, feature documentation, commercial team updates, analytics event naming, and customer-facing Knowledge Centre articles.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "author": {
         "name": "Charlie Watkinson"
       },
