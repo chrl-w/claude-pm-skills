@@ -1,6 +1,6 @@
 ---
 name: create-analytics-event
-description: Create, name, and parameterise Heap analytics events following Spotted Zebra's event taxonomy. Use this skill whenever someone asks to create an analytics event, name a Heap event, track an action, add tracking to a feature, implement event tracking, migrate old events, or asks "what should I call this event?". Also trigger when reviewing PRs that include Heap tracking, when a squad asks about analytics naming conventions, or when anyone mentions Heap events, event taxonomy, or analytics tracking in the context of product work.
+description: Create, name, and parameterise Heap analytics events following Spotted Zebra's event taxonomy. Use this skill whenever someone asks to create an analytics event, name a Heap event, track an action, add tracking to a feature, implement event tracking, or asks "what should I call this event?". Also trigger when reviewing PRs that include Heap tracking, when a squad asks about analytics naming conventions, or when anyone mentions Heap events, event taxonomy, or analytics tracking in the context of product work.
 argument-hint: "<describe the user action to track>"
 ---
 
@@ -12,7 +12,7 @@ You help squads at Spotted Zebra name and parameterise Heap analytics events cor
 
 The canonical taxonomy lives on Notion and may be updated as new domains or actions are approved. Before naming any event, fetch the latest version:
 
-**Notion page:** `310a5bba35bc80ef859dcf96220f8fd5` (Jobs Governance > Analytics)
+**Notion page:** `310a5bba35bc80ef859dcf96220f8fd5` (Analytics Governance)
 
 Use the `notion-fetch` tool with this page ID to get the current controlled lists for domains, actions, and parameters. If the Notion tool is unavailable, fall back to the reference snapshot below, but always prefer the live Notion page.
 
@@ -61,7 +61,6 @@ Fetch the controlled domain list from the Notion page. If unavailable, the curre
 | `role` | The role as a container: hiring team, role settings, structural changes like adding/removing stages (`role-stage-added`), tab navigation within a role (`role-tab-selected`). Not stage internals (that's `stage`) or candidate management (that's `candidate`). |
 | `skill-profile` | Editing the Role Success Profile: skills, competencies, weightings, profile configuration. Formerly `rsp`. |
 | `candidate` | Actions where candidates are the entity being acted on - whether one or many. Includes: viewing, selecting, filtering, searching, sorting, paginating, adding, removing, inviting, progressing, rejecting, shortlisting, exporting, and copying links. Covers both individual and bulk operations (differentiate with `isBulk` and `candidateCount` params). Use `source` to indicate where the action was triggered. |
-| `stage` | Configuring a stage's internals: criteria, priority skills, stage settings. Not for creating/deleting stages (that's `role`) or managing candidates within them (that's `candidate`). |
 | `interviews` | Interview Guide Blueprint: CIG, scoring, calibration, behaviours, feedback. Not the AI notetaker (that's `meetings`). |
 | `meetings` | AI notetaker: meeting recordings, summaries, transcripts. Not interview scoring or guides (that's `interviews`). |
 | `online-assessment` | Actions unique to the Assessment stage: assessment-specific reports, settings, configuration. |
@@ -70,8 +69,6 @@ Fetch the controlled domain list from the Notion page. If unavailable, the curre
 | `nav` | Top-level app navigation, support links, feedback. Not tab navigation within a role (that's `role`). |
 | `user` | User account settings, profile, preferences. |
 | `workspace` | Platform-level actions outside any single role: inviting users to the platform, workspace settings, admin configuration. |
-
-> **Migration note:** Events created before Roles 3.0 used the `job` domain (e.g. `job-stage-added`). These are legacy. All new events use `role`. When you encounter old `job-` events in the codebase, flag them for renaming in the same ticket.
 
 If the feature doesn't fit an existing domain, flag it. New domains need Product approval.
 
@@ -83,11 +80,11 @@ If the feature doesn't fit an existing domain, flag it. New domains need Product
 
 **The test:** Read `{domain}-{object}-{action}` aloud. Does it make sense as a sentence? "candidate move-target selected" is clear. "candidate target selected" is ambiguous (what target?).
 
-Good objects: `search`, `filter`, `move-target`, `invite-language`, `assignee`, `report`, `template`, `recording`, `calibration`, `behaviour`, `team-member`, `candidate-row`, `score-type`, `tab`, `accordion`, `feedback`, `priority-skills`, `stage`, `invite-link`, `score-override`, `bulk-action-bar`, `results`, `stage-tab`, `selection`, `decision`, `link`
+Good objects: `search`, `filter`, `move-target`, `invite-language`, `assignee`, `report`, `template`, `recording`, `calibration`, `behaviour`, `team-member`, `candidate-row`, `score-type`, `tab`, `feedback`, `priority-skills`, `stage`, `invite-link`, `score-override`, `bulk-action-bar`, `results`, `stage-tab`, `selection`, `decision`, `link`
 
-Bad objects: bare nouns that don't describe the action context (e.g. `candidates` when you mean `move-target`, `stage` when you mean `stage-settings`)
+Bad objects: bare nouns that don't describe the action context (e.g. `candidates` when you mean `move-target`, `stage` when you mean `stage-settings`). Also avoid UI element names (`accordion`, `modal`, `dropdown`, `button`) — name the feature or content instead.
 
-**Flow disambiguation:** When a single object has multiple distinct flows (e.g. add, edit, invite), include the flow verb in the object to avoid ambiguity. For example, `team-member-add-opened` and `team-member-edit-submitted` are clearer than `team-member-opened` and `team-member-submitted`, because the latter could refer to either flow. The test: if removing the flow verb makes the event name ambiguous about which user journey it belongs to, keep it in.
+**Flow disambiguation:** When a single object has multiple distinct flows (e.g. add, edit, invite), include the flow verb in the object to avoid ambiguity. For example, `team-member-add-opened` and `team-member-edit-submitted` are clearer than `team-member-opened` and `team-member-submitted`. The test: if removing the flow verb makes the event name ambiguous about which user journey it belongs to, keep it in.
 
 If the object could apply across multiple domains (e.g. `search`, `filter`), that's a signal it should be one event with domain/source in parameters, not separate events per location.
 
@@ -134,7 +131,6 @@ Before finalising a name, read the existing event constants from the monorepo:
 Check whether an event with the same or equivalent name already exists:
 
 - **Exact match** → reuse it; differentiate with parameters only. Add a `♻️ Reusing existing event` callout in the output.
-- **Equivalent event with old taxonomy** (e.g. `job-` prefix instead of `role-`) → propose the new-convention name, flag the old event for deprecation, and include it in the Jira ticket migration section (see Jira format below).
 - **No match** → proceed with the new event name.
 
 When reusing an existing event, include a note in the Jira ticket:
@@ -144,25 +140,47 @@ When reusing an existing event, include a note in the Jira ticket:
 
 Parameters always use **camelCase**. Never kebab-case, never snake_case.
 
-**Standard parameters** (include whenever available):
-- `jobId` — always when in a role context
-- `stageId` — the specific stage instance ID
-- `hiringTeamRole: string | null` — role of the logged-in user on this role (e.g. `"hiring-manager"`, `"recruiter"`). `null` when the user is not on the hiring team for this role. Always pass even when `null` — the distinction is meaningful for segmentation.
-- `userAccessLevel` — `full`, `standard`, `limited`
-- `productSolution` — the product solution context for the role (e.g. `professional-hiring`, `early-careers`, `volume`). Required on all role-scoped events.
+Fetch the full parameter lists from the Notion page. The three tiers below are a current snapshot.
 
-**Conditionally required parameters:**
-- `source` — **Required** when the same action can be triggered from two or more entry points (e.g. `results-tab`, `candidate-drawer`, `hiring-process-tab`, `direct-link`). Without it, Heap cannot distinguish which flow fired the event. If an action has only one possible origin, `source` is optional.
+**Global parameters** — include on every event whenever available:
 
-**Contextual parameters** (include when they add meaning):
-- `stageType` — `shortlist`, `online-assessment`, `ai-interview`, `interview`
-- `filterType`, `filterValue` — what kind of filter and its value
-- `value` — generic selected/entered value (prefer specific names where possible)
-- `skillName` — human-readable skill name
-- `tabNumber`, `itemNumber` — ordinal position (1-indexed)
-- `state` — `on`/`off`, `opened`/`closed`, `ticked`/`unticked`
+| Parameter | Description |
+|---|---|
+| `companyId` | Company ID of the active workspace |
+| `userAccessLevel` | `full`, `standard`, or `limited` |
 
-**Prefer fewer parameters.** If one parameter already communicates the same information as another, drop the redundant one. For example, if `value` is `"shortlist"` then a separate `stageType` parameter on the same event is redundant. Always check the Notion taxonomy for the full current list of contextual parameters before proposing new ones.
+**Domain-specific parameters** — nearly always include when the event is in the listed domain, if available in the flow. May also be relevant in other domains:
+
+| Parameter | Domains | Description |
+|---|---|---|
+| `roleID` | role, candidate, skill-profile, interviews, online-assessment, ai-interview, shortlist | The role (project) ID. Include on all events scoped to a role. |
+| `hiringTeamRole` | role, candidate, skill-profile, interviews, online-assessment, ai-interview, shortlist | Role of the logged-in user on this role (e.g. `"recruiter"`, `"hiring-manager"`). Pass `null` when the user is not on the hiring team — the distinction is meaningful for segmentation. |
+| `productSolution` | role, candidate, skill-profile, interviews, online-assessment, ai-interview, shortlist | Product solution context (e.g. `professional-hiring`, `early-careers`, `volume`). Include on all role-scoped events. |
+| `meetingId` | meetings | The subId of the meeting. |
+| `meetingType` | meetings | Type of meeting: `intake`, `general`, `interview`. |
+
+**Contextual parameters** — include when they add meaningful context to the event. Always check the Notion taxonomy for the full current list before proposing new ones:
+
+| Parameter | When to use |
+|---|---|
+| `source` | Where the action was triggered from (e.g. `results-tab`, `candidate-drawer`, `hiring-process-tab`). **Required** when the same action can be triggered from two or more entry points — without it, Heap cannot distinguish which flow fired the event. |
+| `stageId` | The specific stage instance ID |
+| `stageType` | `shortlist`, `online-assessment`, `ai-interview`, `interview` |
+| `filterType` | What kind of filter was applied |
+| `filterValue` | The value of the filter |
+| `value` | Generic selected/entered value (prefer a specific parameter name where possible) |
+| `skillName` | Human-readable skill name |
+| `tabNumber`, `itemNumber` | Ordinal position (1-indexed) |
+| `state` | `on`/`off`, `opened`/`closed`, `ticked`/`unticked` |
+| `targetStageId`, `targetStageName`, `targetStageType` | When the action moves a candidate to a specific stage |
+| `candidateCount` | Number of candidates affected |
+| `isMixedSelection` | Whether the selection spans multiple stage types |
+| `affectedCount`, `skippedCount` | For bulk operations: how many succeeded and how many were skipped |
+| `inviteLanguage` | Language selected for a candidate invite |
+| `scoreCategory`, `isEvaluator`, `hasResults` | Interview/assessment context |
+| `method`, `actionType`, `settingName` | For settings or configuration events |
+
+**Prefer fewer parameters.** If one parameter already communicates the same information as another, drop the redundant one. For example, if `value` is `"shortlist"` then a separate `stageType` parameter is redundant.
 
 ### Step 6: Sanity check
 
@@ -184,12 +202,12 @@ Include these as a "Dev note" beneath the event's parameter table. Keep them sho
 
 ### Step 8: Update the taxonomy with new parameters
 
-After finalising all events, check whether any parameters you have used are **not already listed** in the contextual parameters table on the Notion taxonomy page (`310a5bba35bc80ef859dcf96220f8fd5`).
+After finalising all events, check whether any parameters you have used are **not already listed** in the Notion taxonomy page (`310a5bba35bc80ef859dcf96220f8fd5`).
 
 For each new parameter:
 1. Confirm with the user that it should be added to the taxonomy.
 2. Write a **generic description** that explains the parameter's purpose without tying it to the specific feature. Other squads should be able to reuse it.
-3. Use the `notion-update-page` tool to append the new parameters to the contextual parameters table.
+3. Use the `notion-update-page` tool to append the new parameters to the relevant parameters table.
 
 This keeps the taxonomy page as the single source of truth and prevents parameter drift across squads.
 
@@ -200,15 +218,15 @@ When reviewing events (yours or someone else's), watch for these:
 | Problem | Fix |
 |---|---|
 | Stage type in the event name (`candidate-shortlist-filter-clicked`) | One event `candidate-filter-selected` with `stageType: "shortlist"` param |
-| UI element in the name (`-button`, `-modal-`, `-dropdown-`) | Remove it, use action verb |
+| UI element in the name (`-button`, `-modal-`, `-dropdown-`) | Remove it; name the feature or content instead |
 | Location in the name (`results-tab-search-changed`) | Use `source` param instead |
 | Wrong parameter casing (`project_id`, `filter-type`) | Always camelCase |
-| Missing standard params | Add `jobId`, `hiringTeamRole` when available |
+| Missing global or domain-specific params | Add `companyId`, `userAccessLevel`, `roleID`, `hiringTeamRole` when available |
 | Separate events for the same action in different places | Merge into one event with `source` param |
 
 **Positive example — discriminator parameter:**
 Instead of `candidate-shortlist-filter-clicked`, `candidate-interview-filter-clicked`, `candidate-assessment-filter-clicked` (three separate events), use one event:
-`candidate-filter-selected` with `stageType: "shortlist" | "interview" | "online-assessment"`. This was the deliberate approach for stage events in Roles 3.0 — one reusable event, sliced in analysis by the discriminator param.
+`candidate-filter-selected` with `stageType: "shortlist" | "interview" | "online-assessment"`. One reusable event, sliced in analysis by the discriminator param.
 
 ## Output format
 
@@ -230,28 +248,16 @@ Parameters:
 
 If reviewing multiple events, use the same format for each, and flag any that break the rules.
 
-When migrating old events, show the mapping:
-```
-Old: {old event name}
-New: {new event name}
-Parameters:
-  - paramName: "value"
-```
-
 ### Writing up as a Jira ticket
 
 Once events are agreed, the default deliverable is a **Jira engineering ticket**. Ask the user which epic to file it under if not already specified. The ticket should include:
 
 1. **Overview** summarising the scope (e.g. "4 Heap events for candidate actions in the pipeline view").
 2. **One section per event** with: event name, firing condition, parameter table (parameter, type, example, notes), and any dev notes.
-3. **Global parameters** reminder (companyID, userAccessLevel).
-4. **Implementation notes** linking to the Notion taxonomy page.
-5. **Migration decision** *(include when old events exist)* — a table listing each old event alongside the proposed replacement, with a `Replace` or `Keep both during transition` decision and a notes column. Example:
-
-   | Old event | New event | Decision | Notes |
-   |---|---|---|---|
-   | `job-stage-added` | `role-stage-added` | Replace | No active Heap dashboards reference the old event |
-   | `job-tab-selected` | `role-tab-selected` | Keep both during transition | Referenced in Q1 retention dashboard — coordinate with data team before removing |
+3. **Acceptance criteria** for each event, written so a QC engineer can verify without needing to understand the feature context. Each AC should cover: the user action that triggers the event, the expected event name in Heap, and a check that each parameter is present with the correct value. Use Given/When/Then format. Example:
+   - *Given* a recruiter is viewing the pipeline on a role with `productSolution: "professional-hiring"` / *When* they apply a Decision filter / *Then* `candidate-filter-selected` fires with `filterType: "decision"`, `roleID`, `hiringTeamRole: "recruiter"`, `companyId`, and `userAccessLevel` set correctly.
+4. **Global parameters** reminder (`companyId`, `userAccessLevel`).
+5. **Implementation notes** linking to the Notion taxonomy page.
 
 Use the Jira MCP tools to create the ticket. If the user provides a Figma link as the source, include it in the ticket description for context.
 
@@ -259,9 +265,9 @@ Use the Jira MCP tools to create the ticket. If the user provides a Figma link a
 
 These are the most common points of confusion:
 
-- **`stage` vs `role`**: `stage` owns its internals (criteria, priority skills, settings). `role` owns the structure (adding/removing stages, role-level settings, team members).
+- **`role` structure vs stage config**: `role` owns the structure (adding/removing stages, role-level settings, team members). Stage configuration events (criteria, priority skills, stage settings) belong to the most specific applicable domain — typically `role` or the stage-type domain (`online-assessment`, `ai-interview`, `shortlist`, `interviews`).
 - **`meetings` vs `interviews`**: `meetings` is the AI notetaker function (recordings, summaries, transcripts). `interviews` is the Interview Guide Blueprint (scoring, calibration, behaviours, feedback).
-- **`candidate` scope**: covers all actions where candidates are the entity - individual or bulk. Filtering a candidate list, selecting candidates, progressing one candidate from a drawer, or bulk-rejecting 50 from the toolbar are all `candidate-` domain. Use `isBulk`/`candidateCount` params for cardinality, `source` for entry point. Not for role structure (adding stages, team members) or stage config (criteria, priority skills).
+- **`candidate` scope**: covers all actions where candidates are the entity - individual or bulk. Filtering a candidate list, selecting candidates, progressing one candidate from a drawer, or bulk-rejecting 50 from the toolbar are all `candidate-` domain. Use `isBulk`/`candidateCount` params for cardinality, `source` for entry point. Not for role structure (adding stages, team members).
 - **`nav` vs `role` tabs**: Top-level app navigation is `nav`. Tab switches within a role are `role-tab-selected`.
 
 **The one rule:** domain = the entity being acted on. If you're doing something to candidates, it's `candidate-`. If you're changing the role's structure, it's `role-`. If you're configuring a stage, it's `stage-`.
